@@ -16,7 +16,7 @@
 1. **Clone this repository to a temporary location:**
    ```bash
    cd /tmp
-   git clone https://github.com/YOUR-USERNAME/claude-code-bmad-skills.git bmad-install
+   git clone https://github.com/aj-geddes/claude-code-bmad-skills.git bmad-install
    cd bmad-install
    ```
 
@@ -95,7 +95,7 @@ A comprehensive skill system that brings the **BMAD Method** (Breakthrough Metho
 
 Give your LLM this URL:
 ```
-https://github.com/YOUR-USERNAME/claude-code-bmad-skills
+https://github.com/aj-geddes/claude-code-bmad-skills
 ```
 
 Then say:
@@ -470,8 +470,8 @@ ls -la docs/prd.md
 - **Discord**: https://discord.gg/gk8jAdXWmj
 
 ### This Implementation
-- **Issues**: [GitHub Issues](https://github.com/YOUR-USERNAME/claude-code-bmad-skills/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/YOUR-USERNAME/claude-code-bmad-skills/discussions)
+- **Issues**: [GitHub Issues](https://github.com/aj-geddes/claude-code-bmad-skills/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/aj-geddes/claude-code-bmad-skills/discussions)
 
 ---
 
