@@ -1,6 +1,7 @@
 # OS files
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Editor files
 .vscode/
@@ -8,10 +9,54 @@ Thumbs.db
 *.swp
 *.swo
 *~
+*.sublime-*
+.vim/
 
 # Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Temporary files
 *.tmp
 *.bak
+*.cache
+
+# Environment
+.env
+.env.local
+
+# Build artifacts (in case someone tests locally)
+dist/
+build/
+*.egg-info/
+__pycache__/
+*.py[cod]
+node_modules/
+
+# Test artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# macOS
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+$RECYCLE.BIN/
+ehthumbs.db
+ehthumbs_vista.db
+
+# Linux
+.directory
+.Trash-*
+
+# IDE
+.project
+.classpath
+.settings/
+.loadpath
