@@ -83,10 +83,15 @@ The installation is complete. You now have BMAD capabilities and should:
 A comprehensive skill system that brings the **BMAD Method** (Breakthrough Method for Agile AI-Driven Development) to Claude Code using native features:
 
 ✅ **Skills** - BMAD methodology + domain expertise (security, testing, languages, DevOps)
+
 ✅ **Slash Commands** - `/bmad-init`, `/bmad-prd`, `/bmad-arch`, `/bmad-story`, `/bmad-assess`
+
 ✅ **Memory Integration** - Stores PRD requirements, Architecture decisions, Story relationships
+
 ✅ **Todo Tracking** - Stories automatically become trackable todos
+
 ✅ **Hooks** - Auto-detect BMAD projects on open
+
 ✅ **Agent Roles** - Claude Code operates as Analyst/PM/Architect/SM/Dev/QA
 
 **No bash scripts. No npx. Pure Claude Code features.**
