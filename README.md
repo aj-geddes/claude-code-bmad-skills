@@ -11,7 +11,19 @@
 
 **If you are an LLM (Claude Code, ChatGPT, etc.) and a user has asked you to install this:**
 
-### Execute These Steps Automatically:
+### Platform Detection
+
+First, detect the user's platform and use the appropriate instructions below:
+
+- **Linux/macOS/WSL**: Use the Bash Installation (default)
+- **Windows PowerShell**: Use the PowerShell Installation
+- **Windows Command Prompt**: Recommend WSL or PowerShell instead
+
+---
+
+### Bash Installation (Linux, macOS, WSL)
+
+**Execute These Steps Automatically:**
 
 1. **Clone this repository to a temporary location:**
    ```bash
@@ -37,7 +49,42 @@
    rm -rf bmad-install
    ```
 
-5. **Inform the user:**
+---
+
+### PowerShell Installation (Windows)
+
+**Execute These Steps Automatically:**
+
+1. **Clone this repository to a temporary location:**
+   ```powershell
+   Set-Location $env:TEMP
+   git clone https://github.com/aj-geddes/claude-code-bmad-skills.git bmad-install
+   Set-Location bmad-install
+   ```
+
+2. **Run the installation script:**
+   ```powershell
+   .\install.ps1
+   ```
+
+3. **Confirm installation:**
+   ```powershell
+   Get-Item "$env:USERPROFILE\.claude\skills\bmad-method\SKILL.md"
+   ```
+
+4. **Clean up:**
+   ```powershell
+   Set-Location ..
+   Remove-Item -Recurse -Force bmad-install
+   ```
+
+---
+
+### Post-Installation Message
+
+**After successful installation, inform the user:**
+
+5. **Success Message:**
    ```
    ✓ BMAD Skills installed successfully!
 
@@ -98,6 +145,8 @@ A comprehensive skill system that brings the **BMAD Method** (Breakthrough Metho
 
 ### Quick Start for Humans
 
+#### Option 1: Let your LLM Install (Recommended)
+
 Give your LLM this URL:
 ```
 https://github.com/aj-geddes/claude-code-bmad-skills
@@ -108,7 +157,26 @@ Then say:
 "Please install the BMAD skills from this repository"
 ```
 
-The LLM will read the instructions above and install everything automatically.
+The LLM will automatically detect your platform and install everything.
+
+#### Option 2: Manual Installation
+
+**Linux / macOS / WSL:**
+```bash
+cd /tmp
+git clone https://github.com/aj-geddes/claude-code-bmad-skills.git bmad-install
+cd bmad-install
+chmod +x install.sh
+./install.sh
+```
+
+**Windows PowerShell:**
+```powershell
+Set-Location $env:TEMP
+git clone https://github.com/aj-geddes/claude-code-bmad-skills.git bmad-install
+Set-Location bmad-install
+.\install.ps1
+```
 
 ---
 
@@ -133,6 +201,17 @@ The methodology, agent roles, workflow patterns, story templates, and all BMAD c
 
 ## 📦 What Gets Installed
 
+### Cross-Platform Support
+
+BMAD Skills work on all platforms where Claude Code runs:
+- **Linux**: Bash installation (`install.sh`)
+- **macOS**: Bash installation (`install.sh`)
+- **WSL (Windows Subsystem for Linux)**: Bash installation (`install.sh`)
+- **Windows PowerShell**: PowerShell installation (`install.ps1`)
+
+### Installation Directory
+
+**Linux/macOS/WSL:**
 ```
 ~/.claude/skills/
 ├── bmad-method/SKILL.md       # BMAD methodology with Memory integration
@@ -142,6 +221,18 @@ The methodology, agent roles, workflow patterns, story templates, and all BMAD c
 ├── devops/SKILL.md             # Docker, K8s, Helm, Terraform, CI/CD
 ├── testing/SKILL.md            # Unit, integration, E2E, TDD
 └── git/SKILL.md                # Git best practices, BMAD workflow
+```
+
+**Windows PowerShell:**
+```
+%USERPROFILE%\.claude\skills\
+├── bmad-method\SKILL.md       # BMAD methodology with Memory integration
+├── security\SKILL.md           # OWASP Top 10, auth, validation
+├── python\SKILL.md             # Modern Python 3.8+, async, type hints
+├── javascript\SKILL.md         # ES6+, TypeScript, React patterns
+├── devops\SKILL.md             # Docker, K8s, Helm, Terraform, CI/CD
+├── testing\SKILL.md            # Unit, integration, E2E, TDD
+└── git\SKILL.md                # Git best practices, BMAD workflow
 ```
 
 ---
@@ -372,7 +463,8 @@ Claude Code:
 claude-code-bmad-skills/
 ├── README.md                      # This file (LLM-friendly)
 ├── LICENSE                        # MIT + BMAD attribution
-├── install.sh                     # Installation script
+├── install.sh                     # Bash installation script (Linux/macOS/WSL)
+├── install.ps1                    # PowerShell installation script (Windows)
 ├── skills/                        # Claude Code skills
 │   ├── bmad-method/SKILL.md       # BMAD methodology
 │   ├── security/SKILL.md          # Security practices
@@ -413,6 +505,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ### Skills Not Loading
 
+**Linux/macOS/WSL:**
 ```bash
 # Check installation
 ls -la ~/.claude/skills/bmad-method/SKILL.md
@@ -423,17 +516,36 @@ chmod 644 ~/.claude/skills/*/SKILL.md
 # Restart Claude Code
 ```
 
+**Windows PowerShell:**
+```powershell
+# Check installation
+Get-Item "$env:USERPROFILE\.claude\skills\bmad-method\SKILL.md"
+
+# Verify file exists
+Test-Path "$env:USERPROFILE\.claude\skills\bmad-method\SKILL.md"
+
+# Restart Claude Code
+```
+
 ### Commands Not Available
 
 Commands auto-create on first use in Claude Code. Alternatively:
 
+**Linux/macOS/WSL:**
 ```bash
 mkdir -p .claude/commands
 cp commands/*.md .claude/commands/
 ```
 
+**Windows PowerShell:**
+```powershell
+New-Item -ItemType Directory -Force -Path ".claude\commands"
+Copy-Item "commands\*.md" ".claude\commands\"
+```
+
 ### BMAD Not Detecting
 
+**Linux/macOS/WSL:**
 ```bash
 # Check for BMAD markers
 ls -la bmad-agent/
@@ -443,6 +555,31 @@ ls -la docs/prd.md
 # Manually initialize
 # Use /bmad-init command in Claude Code
 ```
+
+**Windows PowerShell:**
+```powershell
+# Check for BMAD markers
+Get-ChildItem bmad-agent\ -ErrorAction SilentlyContinue
+Get-Item .bmad-initialized -ErrorAction SilentlyContinue
+Get-Item docs\prd.md -ErrorAction SilentlyContinue
+
+# Manually initialize
+# Use /bmad-init command in Claude Code
+```
+
+### Platform-Specific Issues
+
+**WSL Users:**
+- Ensure you're running the bash script in WSL, not in Windows Command Prompt
+- WSL uses Linux paths (`~/.claude/`) not Windows paths
+
+**Windows PowerShell Users:**
+- Ensure execution policy allows scripts: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
+- If you see "cannot be loaded because running scripts is disabled", run the above command
+
+**macOS Users:**
+- If you get permission errors, run: `chmod +x install.sh`
+- Ensure you have git installed: `git --version`
 
 ---
 
