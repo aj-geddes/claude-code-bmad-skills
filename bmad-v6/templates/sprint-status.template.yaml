@@ -1,0 +1,35 @@
+# BMAD Method Sprint Status
+# Generated: {{TIMESTAMP}}
+# Project: {{PROJECT_NAME}}
+
+project_name: "{{PROJECT_NAME}}"
+sprint_number: 1
+sprint_goal: "{{SPRINT_GOAL}}"
+sprint_start_date: "{{START_DATE}}"
+sprint_end_date: ""
+last_updated: "{{TIMESTAMP}}"
+
+# Epic and Story Tracking
+epics: []
+  # Example structure:
+  # - id: "epic-001"
+  #   name: "Epic Name"
+  #   description: "Epic description"
+  #   status: "not-started"  # not-started, in-progress, completed
+  #   stories:
+  #     - id: "story-001"
+  #       name: "Story name"
+  #       description: "Story description"
+  #       status: "not-started"  # not-started, in-progress, dev-complete, code-review, done
+  #       file: "docs/stories/epic-001/story-001.md"
+  #       assigned_to: ""
+  #       estimate: ""
+  #       actual: ""
+
+# Sprint Metrics
+metrics:
+  total_epics: 0
+  total_stories: 0
+  stories_completed: 0
+  stories_in_progress: 0
+  stories_not_started: 0

@@ -1,0 +1,20 @@
+# BMAD Method v6 - Project Configuration Template
+# This file is created in {project-root}/bmad/config.yaml during workflow-init
+
+project_name: "{{PROJECT_NAME}}"
+project_type: "{{PROJECT_TYPE}}"  # web-app, mobile-app, api, game, library, other
+project_level: {{PROJECT_LEVEL}}  # 0-4 (0=single story, 1=1-10 stories, 2=5-15, 3=12-40, 4=40+)
+
+# Output folder (relative to project root)
+output_folder: "docs"
+
+# Module-specific settings
+bmm:
+  workflow_status_file: "docs/bmm-workflow-status.yaml"
+  sprint_status_file: "docs/sprint-status.yaml"
+
+# Path configuration
+paths:
+  docs: "docs"
+  stories: "docs/stories"
+  tests: "tests"

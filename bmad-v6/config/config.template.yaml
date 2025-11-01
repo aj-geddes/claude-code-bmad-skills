@@ -1,0 +1,27 @@
+# BMAD Method v6 - Global Configuration Template
+# This file is copied to ~/.claude/config/bmad/config.yaml during installation
+
+version: "6.0.0"
+ide: "claude-code"
+
+# User Information
+user_name: "{{USER_NAME}}"
+user_skill_level: "intermediate"  # beginner, intermediate, expert
+
+# Communication Settings
+communication_language: "English"
+document_output_language: "English"
+
+# Output Settings
+default_output_folder: "docs"
+
+# Enabled Modules
+modules_enabled:
+  - core      # Core BMAD functionality
+  - bmm       # BMad Method (product development)
+  # - bmb       # BMad Builder (create custom workflows) - Uncomment to enable
+  # - cis       # Creative Intelligence Suite - Uncomment to enable
+
+# Advanced Settings
+auto_update_status: true
+verbose_mode: false
