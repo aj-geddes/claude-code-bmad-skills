@@ -60,3 +60,9 @@ ehthumbs_vista.db
 .classpath
 .settings/
 .loadpath
+
+# Development/Working Documents
+# (Keep committed: README.md, BMAD-V6-COMPLETE.md, PHASES-6-8-COMPLETE.md, PERSONA-REFACTOR-COMPLETE.md)
+BMAD-V6-CLAUDE-CODE-TRANSITION-PLAN.md
+PHASE-*-COMPLETE.md
+reference/
