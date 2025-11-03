@@ -4,6 +4,8 @@
 # Installs BMAD Method v6 using only Claude Code native features
 # No npx, no external dependencies, pure Claude Code
 #
+# Supports: PowerShell 5.1+ (Windows default) and PowerShell 6+ (Core)
+#
 # Usage: .\install-v6.ps1
 ###############################################################################
 
@@ -25,6 +27,55 @@ $ErrorActionPreference = "Stop"
 # Configuration
 $BmadVersion = "6.0.0"
 
+# PowerShell version detection
+$PSVersion = $PSVersionTable.PSVersion.Major
+$IsPowerShell5 = $PSVersion -lt 6
+
+if ($IsPowerShell5) {
+    Write-Host "Detected: PowerShell $PSVersion (using compatibility mode)" -ForegroundColor Yellow
+} else {
+    Write-Host "Detected: PowerShell $PSVersion" -ForegroundColor Green
+}
+
+###############################################################################
+# PowerShell 5.1 Compatibility Helper
+###############################################################################
+
+function Join-PathCompat {
+    <#
+    .SYNOPSIS
+    Join-Path that works in both PowerShell 5.1 and PowerShell 6+
+
+    .DESCRIPTION
+    PowerShell 5.1 only accepts 2 arguments to Join-Path
+    PowerShell 6+ accepts multiple path segments
+    This function provides compatibility for both
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Path,
+
+        [Parameter(Mandatory=$true, ValueFromRemainingArguments=$true)]
+        [string[]]$ChildPath
+    )
+
+    if ($IsPowerShell5) {
+        # PowerShell 5.1: Chain Join-Path calls
+        $result = $Path
+        foreach ($segment in $ChildPath) {
+            $result = Join-Path $result $segment
+        }
+        return $result
+    } else {
+        # PowerShell 6+: Use native multiple-argument support
+        return Join-Path $Path $ChildPath
+    }
+}
+
+###############################################################################
+# Directory Configuration
+###############################################################################
+
 # Cross-platform home directory detection
 if ($IsWindows -or $env:OS -match "Windows" -or (-not (Test-Path variable:IsWindows))) {
     # Windows (PowerShell 5.1 or PowerShell 7+ on Windows)
@@ -35,8 +86,8 @@ if ($IsWindows -or $env:OS -match "Windows" -or (-not (Test-Path variable:IsWind
 }
 
 $ClaudeDir = Join-Path $HomeDir ".claude"
-$BmadConfigDir = Join-Path $ClaudeDir "config" "bmad"
-$BmadSkillsDir = Join-Path $ClaudeDir "skills" "bmad"
+$BmadConfigDir = Join-PathCompat $ClaudeDir "config" "bmad"
+$BmadSkillsDir = Join-PathCompat $ClaudeDir "skills" "bmad"
 $ScriptDir = $PSScriptRoot
 
 ###############################################################################
