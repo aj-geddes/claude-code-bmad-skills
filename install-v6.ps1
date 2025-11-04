@@ -135,20 +135,20 @@ $ScriptDir = $PSScriptRoot
 
 function Write-Info {
     param([string]$Message)
-    Write-Host "ℹ $Message" -ForegroundColor Blue
+    Write-Host "[INFO] $Message" -ForegroundColor Blue
 }
 
 function Write-Success {
     param([string]$Message)
-    Write-Host "✓ $Message" -ForegroundColor Green
+    Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
 function Write-Header {
     param([string]$Message)
     Write-Host ""
-    Write-Host "═══════════════════════════════════════════════" -ForegroundColor Blue
+    Write-Host "===============================================" -ForegroundColor Blue
     Write-Host "  $Message" -ForegroundColor Blue
-    Write-Host "═══════════════════════════════════════════════" -ForegroundColor Blue
+    Write-Host "===============================================" -ForegroundColor Blue
     Write-Host ""
 }
 
@@ -338,7 +338,7 @@ function Test-Installation {
     if (Test-Path $BmadMasterPath) {
         Write-Success "BMad Master skill verified"
     } else {
-        Write-Host "  ✗ BMad Master skill missing at: $BmadMasterPath" -ForegroundColor Red
+        Write-Host "  [X] BMad Master skill missing at: $BmadMasterPath" -ForegroundColor Red
         $errors++
     }
 
@@ -348,7 +348,7 @@ function Test-Installation {
     if (Test-Path $ConfigPath) {
         Write-Success "Configuration verified"
     } else {
-        Write-Host "  ✗ Configuration missing at: $ConfigPath" -ForegroundColor Red
+        Write-Host "  [X] Configuration missing at: $ConfigPath" -ForegroundColor Red
         $errors++
     }
 
@@ -358,7 +358,7 @@ function Test-Installation {
     if (Test-Path $HelpersPath) {
         Write-Success "Helpers verified"
     } else {
-        Write-Host "  ✗ Helpers missing at: $HelpersPath" -ForegroundColor Red
+        Write-Host "  [X] Helpers missing at: $HelpersPath" -ForegroundColor Red
         $errors++
     }
 
@@ -367,7 +367,7 @@ function Test-Installation {
         Write-Verbose "All components verified: $($errors) errors"
         return $true
     } else {
-        Write-Host "✗ Installation verification failed: $errors error(s)" -ForegroundColor Red
+        Write-Host "[X] Installation verification failed: $errors error(s)" -ForegroundColor Red
         return $false
     }
 }
@@ -375,43 +375,43 @@ function Test-Installation {
 function Show-NextSteps {
     Write-Header "Installation Complete!"
 
-    Write-Host "📦 BMAD Method v$BmadVersion installed successfully!"
+    Write-Host "[SUCCESS] BMAD Method v$BmadVersion installed successfully!" -ForegroundColor Green
     Write-Host ""
     Write-Host "Installation location:"
     Write-Host "  Skills: $BmadSkillsDir"
     Write-Host "  Config: $BmadConfigDir"
     Write-Host "  Utils:  $BmadConfigDir\helpers.md"
     Write-Host ""
-    Write-Host "✓ BMad Master skill (core orchestrator)"
-    Write-Host "✓ Configuration system"
-    Write-Host "✓ Template engine"
-    Write-Host "✓ Status tracking utilities"
+    Write-Host "[OK] BMad Master skill (core orchestrator)"
+    Write-Host "[OK] Configuration system"
+    Write-Host "[OK] Template engine"
+    Write-Host "[OK] Status tracking utilities"
     Write-Host ""
-    Write-Host "📋 Next Steps:"
+    Write-Host "Next Steps:"
     Write-Host ""
-    Write-Host "1️⃣  " -NoNewline
+    Write-Host "1. " -NoNewline
     Write-Host "Restart Claude Code" -ForegroundColor Blue
     Write-Host "   Skills will be loaded in new sessions"
     Write-Host ""
-    Write-Host "2️⃣  " -NoNewline
+    Write-Host "2. " -NoNewline
     Write-Host "Open your project" -ForegroundColor Blue
     Write-Host "   Navigate to the project you want to use BMAD with"
     Write-Host ""
-    Write-Host "3️⃣  " -NoNewline
+    Write-Host "3. " -NoNewline
     Write-Host "Initialize BMAD" -ForegroundColor Blue
     Write-Host "   Run: /workflow-init"
     Write-Host "   This sets up BMAD structure in your project"
     Write-Host ""
-    Write-Host "4️⃣  " -NoNewline
+    Write-Host "4. " -NoNewline
     Write-Host "Check status" -ForegroundColor Blue
     Write-Host "   Run: /workflow-status"
     Write-Host "   See your project status and get recommendations"
     Write-Host ""
-    Write-Host "📚 Documentation:"
+    Write-Host "Documentation:"
     Write-Host "   README: $ScriptDir\README.md"
     Write-Host "   Plan:   $ScriptDir\BMAD-V6-CLAUDE-CODE-TRANSITION-PLAN.md"
     Write-Host ""
-    Write-Host "✓ BMAD Method v6 is ready!" -ForegroundColor Green
+    Write-Host "[OK] BMAD Method v6 is ready!" -ForegroundColor Green
     Write-Host ""
     Write-Host "Need help? Run /workflow-status in Claude Code after initializing your project."
 }
@@ -459,9 +459,9 @@ function Main {
     catch {
         Write-Progress -Activity "Installing BMAD Method v6" -Completed
         Write-Host "" -ForegroundColor Red
-        Write-Host "═══════════════════════════════════════════════" -ForegroundColor Red
+        Write-Host "===============================================" -ForegroundColor Red
         Write-Host "  Installation Failed" -ForegroundColor Red
-        Write-Host "═══════════════════════════════════════════════" -ForegroundColor Red
+        Write-Host "===============================================" -ForegroundColor Red
         Write-Host ""
         Write-Host "Error: $_" -ForegroundColor Red
         Write-Host ""
