@@ -120,13 +120,16 @@ function Write-Header {
 function New-Directories {
     Write-Info "Creating directory structure..."
 
-    # Claude Code directories
+    # Claude Code directories - Skills
     @("core", "bmm", "bmb", "cis") | ForEach-Object {
-        New-Item -ItemType Directory -Force -Path "$BmadSkillsDir/$_" | Out-Null
+        $skillDir = Join-Path $BmadSkillsDir $_
+        New-Item -ItemType Directory -Force -Path $skillDir | Out-Null
     }
 
+    # Claude Code directories - Config
     @("agents", "templates") | ForEach-Object {
-        New-Item -ItemType Directory -Force -Path "$BmadConfigDir/$_" | Out-Null
+        $configDir = Join-Path $BmadConfigDir $_
+        New-Item -ItemType Directory -Force -Path $configDir | Out-Null
     }
 
     Write-Success "Directories created"
@@ -136,29 +139,37 @@ function Install-Skills {
     Write-Info "Installing BMAD skills..."
 
     # Install core skills
-    $CoreSkillsPath = Join-Path $ScriptDir "bmad-v6\skills\core"
+    $CoreSkillsPath = Join-PathCompat $ScriptDir "bmad-v6" "skills" "core"
+    $CoreDestPath = Join-Path $BmadSkillsDir "core"
     if (Test-Path $CoreSkillsPath) {
-        Copy-Item -Recurse -Force "$CoreSkillsPath\*" "$BmadSkillsDir/core\"
+        Copy-Item -Path (Join-Path $CoreSkillsPath "*") -Destination $CoreDestPath -Recurse -Force
         Write-Success "Core skills installed"
+    } else {
+        Write-Host "  Warning: Core skills not found at $CoreSkillsPath" -ForegroundColor Yellow
     }
 
-    # Install BMM skills (will add more in later phases)
-    $BmmSkillsPath = Join-Path $ScriptDir "bmad-v6\skills\bmm"
+    # Install BMM skills
+    $BmmSkillsPath = Join-PathCompat $ScriptDir "bmad-v6" "skills" "bmm"
+    $BmmDestPath = Join-Path $BmadSkillsDir "bmm"
     if (Test-Path $BmmSkillsPath) {
-        Copy-Item -Recurse -Force "$BmmSkillsPath\*" "$BmadSkillsDir/bmm\" -ErrorAction SilentlyContinue
+        Copy-Item -Path (Join-Path $BmmSkillsPath "*") -Destination $BmmDestPath -Recurse -Force -ErrorAction SilentlyContinue
         Write-Success "BMM skills installed"
+    } else {
+        Write-Host "  Warning: BMM skills not found at $BmmSkillsPath" -ForegroundColor Yellow
     }
 
     # Install BMB skills (optional)
-    $BmbSkillsPath = Join-Path $ScriptDir "bmad-v6\skills\bmb"
+    $BmbSkillsPath = Join-PathCompat $ScriptDir "bmad-v6" "skills" "bmb"
+    $BmbDestPath = Join-Path $BmadSkillsDir "bmb"
     if (Test-Path $BmbSkillsPath) {
-        Copy-Item -Recurse -Force "$BmbSkillsPath\*" "$BmadSkillsDir/bmb\" -ErrorAction SilentlyContinue
+        Copy-Item -Path (Join-Path $BmbSkillsPath "*") -Destination $BmbDestPath -Recurse -Force -ErrorAction SilentlyContinue
     }
 
     # Install CIS skills (optional)
-    $CisSkillsPath = Join-Path $ScriptDir "bmad-v6\skills\cis"
+    $CisSkillsPath = Join-PathCompat $ScriptDir "bmad-v6" "skills" "cis"
+    $CisDestPath = Join-Path $BmadSkillsDir "cis"
     if (Test-Path $CisSkillsPath) {
-        Copy-Item -Recurse -Force "$CisSkillsPath\*" "$BmadSkillsDir/cis\" -ErrorAction SilentlyContinue
+        Copy-Item -Path (Join-Path $CisSkillsPath "*") -Destination $CisDestPath -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -166,7 +177,7 @@ function Install-Config {
     Write-Info "Installing configuration..."
 
     # Install config template
-    $ConfigTemplatePath = Join-Path $ScriptDir "bmad-v6\config\config.template.yaml"
+    $ConfigTemplatePath = Join-PathCompat $ScriptDir "bmad-v6" "config" "config.template.yaml"
     $ConfigPath = Join-Path $BmadConfigDir "config.yaml"
 
     if (Test-Path $ConfigTemplatePath) {
@@ -179,12 +190,15 @@ function Install-Config {
         } else {
             Write-Info "Configuration already exists, skipping"
         }
+    } else {
+        Write-Host "  Warning: Config template not found at $ConfigTemplatePath" -ForegroundColor Yellow
     }
 
     # Copy project config template
-    $ProjectConfigTemplatePath = Join-Path $ScriptDir "bmad-v6\config\project-config.template.yaml"
+    $ProjectConfigTemplatePath = Join-PathCompat $ScriptDir "bmad-v6" "config" "project-config.template.yaml"
+    $ProjectConfigDestPath = Join-Path $BmadConfigDir "project-config.template.yaml"
     if (Test-Path $ProjectConfigTemplatePath) {
-        Copy-Item $ProjectConfigTemplatePath "$BmadConfigDir/project-config.template.yaml" -Force
+        Copy-Item -Path $ProjectConfigTemplatePath -Destination $ProjectConfigDestPath -Force
     }
 }
 
@@ -192,10 +206,13 @@ function Install-Templates {
     Write-Info "Installing templates..."
 
     # Install all template files
-    $TemplatesPath = Join-Path $ScriptDir "bmad-v6\templates"
+    $TemplatesPath = Join-PathCompat $ScriptDir "bmad-v6" "templates"
+    $TemplatesDestPath = Join-Path $BmadConfigDir "templates"
     if (Test-Path $TemplatesPath) {
-        Copy-Item "$TemplatesPath\*" "$BmadConfigDir/templates\" -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path (Join-Path $TemplatesPath "*") -Destination $TemplatesDestPath -Force -ErrorAction SilentlyContinue
         Write-Success "Templates installed"
+    } else {
+        Write-Host "  Warning: Templates not found at $TemplatesPath" -ForegroundColor Yellow
     }
 }
 
@@ -203,10 +220,13 @@ function Install-Utils {
     Write-Info "Installing utility helpers..."
 
     # Copy helpers.md to config directory for reference
-    $HelpersPath = Join-Path $ScriptDir "bmad-v6\utils\helpers.md"
+    $HelpersPath = Join-PathCompat $ScriptDir "bmad-v6" "utils" "helpers.md"
+    $HelpersDestPath = Join-Path $BmadConfigDir "helpers.md"
     if (Test-Path $HelpersPath) {
-        Copy-Item $HelpersPath "$BmadConfigDir/helpers.md" -Force
+        Copy-Item -Path $HelpersPath -Destination $HelpersDestPath -Force
         Write-Success "Utility helpers installed"
+    } else {
+        Write-Host "  Warning: Helpers not found at $HelpersPath" -ForegroundColor Yellow
     }
 }
 
@@ -216,26 +236,29 @@ function Test-Installation {
     $errors = 0
 
     # Check for BMad Master skill
-    if (Test-Path "$BmadSkillsDir/core\bmad-master\SKILL.md") {
+    $BmadMasterPath = Join-PathCompat $BmadSkillsDir "core" "bmad-master" "SKILL.md"
+    if (Test-Path $BmadMasterPath) {
         Write-Success "BMad Master skill verified"
     } else {
-        Write-Host "✗ BMad Master skill missing" -ForegroundColor Red
+        Write-Host "  ✗ BMad Master skill missing at: $BmadMasterPath" -ForegroundColor Red
         $errors++
     }
 
     # Check for config
-    if (Test-Path "$BmadConfigDir/config.yaml") {
+    $ConfigPath = Join-Path $BmadConfigDir "config.yaml"
+    if (Test-Path $ConfigPath) {
         Write-Success "Configuration verified"
     } else {
-        Write-Host "✗ Configuration missing" -ForegroundColor Red
+        Write-Host "  ✗ Configuration missing at: $ConfigPath" -ForegroundColor Red
         $errors++
     }
 
     # Check for helpers
-    if (Test-Path "$BmadConfigDir/helpers.md") {
+    $HelpersPath = Join-Path $BmadConfigDir "helpers.md"
+    if (Test-Path $HelpersPath) {
         Write-Success "Helpers verified"
     } else {
-        Write-Host "✗ Helpers missing" -ForegroundColor Red
+        Write-Host "  ✗ Helpers missing at: $HelpersPath" -ForegroundColor Red
         $errors++
     }
 
