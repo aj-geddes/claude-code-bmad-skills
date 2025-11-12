@@ -67,10 +67,11 @@
     Removes BMAD Method v6 from the system.
 
 .NOTES
-    Version: 6.0.1
+    Version: 6.0.2
     Requires: PowerShell 5.1+
     Updated: 2025-11-12
-    Changes: Fixed Copy-Item issues, added pre-flight validation, improved error handling
+    Changes: Fixed Copy-Item issues, added pre-flight validation, improved error handling,
+             added slash commands installation to ~/.claude/commands/bmad/
 #>
 
 [CmdletBinding(SupportsShouldProcess=$true)]
@@ -87,7 +88,7 @@ $ErrorActionPreference = "Stop"
 # Configuration
 ###############################################################################
 
-$BmadVersion = "6.0.1"
+$BmadVersion = "6.0.2"
 
 # PowerShell version detection
 $PSVersion = $PSVersionTable.PSVersion.Major
@@ -235,6 +236,7 @@ if ($IsWindows -or $env:OS -match "Windows" -or (-not (Test-Path variable:IsWind
 $ClaudeDir = Join-Path $HomeDir ".claude"
 $BmadConfigDir = Join-PathCompat $ClaudeDir "config" "bmad"
 $BmadSkillsDir = Join-PathCompat $ClaudeDir "skills" "bmad"
+$BmadCommandsDir = Join-PathCompat $ClaudeDir "commands" "bmad"
 $ScriptDir = $PSScriptRoot
 
 # Source directories
@@ -243,6 +245,7 @@ $SourceSkillsDir = Join-PathCompat $SourceBmadV6Dir "skills"
 $SourceConfigDir = Join-PathCompat $SourceBmadV6Dir "config"
 $SourceTemplatesDir = Join-PathCompat $SourceBmadV6Dir "templates"
 $SourceUtilsDir = Join-PathCompat $SourceBmadV6Dir "utils"
+$SourceCommandsDir = Join-PathCompat $SourceBmadV6Dir "commands"
 
 ###############################################################################
 # Pre-Flight Validation
@@ -286,6 +289,7 @@ function Test-Prerequisites {
         "config" = $SourceConfigDir
         "templates" = $SourceTemplatesDir
         "utils" = $SourceUtilsDir
+        "commands" = $SourceCommandsDir
     }
 
     foreach ($dirName in $requiredDirs.Keys) {
@@ -355,6 +359,7 @@ function Uninstall-BmadV6 {
 
     $dirsToRemove = @(
         $BmadSkillsDir,
+        $BmadCommandsDir,
         $BmadConfigDir
     )
 
@@ -602,7 +607,7 @@ function Install-Templates {
 }
 
 function Install-Utils {
-    Write-Progress -Activity "Installing BMAD Method v6" -Status "Installing utility helpers..." -PercentComplete 80
+    Write-Progress -Activity "Installing BMAD Method v6" -Status "Installing utility helpers..." -PercentComplete 70
     Write-Info "Installing utility helpers..."
 
     try {
@@ -628,6 +633,43 @@ function Install-Utils {
     }
 }
 
+function Install-Commands {
+    Write-Progress -Activity "Installing BMAD Method v6" -Status "Installing slash commands..." -PercentComplete 80
+    Write-Info "Installing slash commands..."
+
+    try {
+        Write-Verbose "Commands source: $SourceCommandsDir"
+        Write-Verbose "Commands destination: $BmadCommandsDir"
+
+        if (Test-Path $SourceCommandsDir) {
+            # Count commands for user feedback
+            $commandFiles = Get-ChildItem -Path $SourceCommandsDir -Filter "*.md" -ErrorAction SilentlyContinue
+            $commandCount = $commandFiles.Count
+
+            if ($commandCount -gt 0) {
+                $commandPattern = Join-Path $SourceCommandsDir "*"
+                if ($PSCmdlet.ShouldProcess($BmadCommandsDir, "Copy $commandCount slash commands")) {
+                    Copy-ItemSafe -SourcePath $commandPattern -DestinationPath $BmadCommandsDir -Force -ErrorContext "slash commands"
+                    Write-Success "Slash commands installed ($commandCount commands)"
+                    Write-Verbose "  Commands:"
+                    foreach ($cmd in $commandFiles) {
+                        $cmdName = $cmd.BaseName
+                        Write-Verbose "    /$cmdName"
+                    }
+                }
+            } else {
+                Write-Warning "No command files found in: $SourceCommandsDir"
+            }
+        } else {
+            Write-Warning "Commands directory not found at: $SourceCommandsDir"
+        }
+    }
+    catch {
+        Write-ErrorMsg "Failed to install slash commands"
+        throw
+    }
+}
+
 function Test-Installation {
     Write-Progress -Activity "Installing BMAD Method v6" -Status "Verifying installation..." -PercentComplete 90
     Write-Info "Verifying installation..."
@@ -645,6 +687,10 @@ function Test-Installation {
         @{
             Name = "Helpers"
             Path = Join-Path $BmadConfigDir "helpers.md"
+        },
+        @{
+            Name = "Slash commands"
+            Path = Join-Path $BmadCommandsDir "workflow-init.md"
         }
     )
 
@@ -684,13 +730,24 @@ function Show-NextSteps {
     Write-Host "[SUCCESS] BMAD Method v$BmadVersion installed successfully!" -ForegroundColor Green
     Write-Host ""
     Write-Host "Installation location:"
-    Write-Host "  Skills: $BmadSkillsDir"
-    Write-Host "  Config: $BmadConfigDir"
+    Write-Host "  Skills:   $BmadSkillsDir"
+    Write-Host "  Commands: $BmadCommandsDir"
+    Write-Host "  Config:   $BmadConfigDir"
     Write-Host ""
-    Write-Host "[OK] Core orchestration skills"
-    Write-Host "[OK] Agile workflow skills (Analyst, PM, Architect, SM, Developer, UX)"
-    Write-Host "[OK] Builder module (custom agents and workflows)"
-    Write-Host "[OK] Creative Intelligence (brainstorming and research)"
+    Write-Host "[OK] 9 Specialized Skills"
+    Write-Host "     - Core orchestrator (BMad Master)"
+    Write-Host "     - Agile agents (Analyst, PM, Architect, SM, Developer, UX)"
+    Write-Host "     - Builder module (custom agents and workflows)"
+    Write-Host "     - Creative Intelligence (brainstorming and research)"
+    Write-Host ""
+    Write-Host "[OK] 15 Workflow Commands"
+    Write-Host "     - /workflow-init, /workflow-status"
+    Write-Host "     - /product-brief, /prd, /tech-spec"
+    Write-Host "     - /architecture, /solutioning-gate-check"
+    Write-Host "     - /sprint-planning, /create-story, /dev-story"
+    Write-Host "     - /brainstorm, /research"
+    Write-Host "     - /create-agent, /create-workflow, /create-ux-design"
+    Write-Host ""
     Write-Host "[OK] Configuration system"
     Write-Host "[OK] Template engine"
     Write-Host "[OK] Status tracking utilities"
@@ -736,16 +793,16 @@ function Show-WhatIfSummary {
     Write-Header "Installation Summary (Dry-Run)"
 
     Write-Host "Would install BMAD Method v$BmadVersion to:"
-    Write-Host "  Skills: $BmadSkillsDir"
-    Write-Host "  Config: $BmadConfigDir"
+    Write-Host "  Skills:   $BmadSkillsDir"
+    Write-Host "  Commands: $BmadCommandsDir"
+    Write-Host "  Config:   $BmadConfigDir"
     Write-Host ""
     Write-Host "Components:"
-    Write-Host "  [*] Core orchestration skills"
-    Write-Host "  [*] BMM skills (6 agile agents)"
-    Write-Host "  [*] BMB skills (builder module)"
-    Write-Host "  [*] CIS skills (creative intelligence)"
+    Write-Host "  [*] 9 specialized skills (Core, BMM, BMB, CIS)"
+    Write-Host "  [*] 15 workflow slash commands"
     Write-Host "  [*] Configuration templates"
     Write-Host "  [*] Utility helpers"
+    Write-Host "  [*] Status tracking system"
     Write-Host ""
     Write-Host "To perform actual installation, run without -WhatIf"
 }
@@ -803,6 +860,7 @@ function Main {
         Install-Config
         Install-Templates
         Install-Utils
+        Install-Commands
 
         # Verify
         Write-Host ""

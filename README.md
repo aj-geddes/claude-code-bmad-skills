@@ -1263,6 +1263,14 @@ This repository provides a **Claude Code native implementation** of the BMAD Met
 
 ## 📈 Version History
 
+**v6.0.2** (2025-11-12) - Commands Installation Fix
+- 🔧 **Fixed:** Missing slash commands installation (15 commands not being installed)
+- ✨ **Added:** Install-Commands function to install to `~/.claude/commands/bmad/`
+- 📝 **Improved:** Installation now includes all 15 workflow commands
+- 📝 **Improved:** Uninstall now removes commands directory
+- 📝 **Improved:** Verification checks for commands
+- 📝 **Improved:** Success message lists all 15 commands
+
 **v6.0.1** (2025-11-12) - PowerShell Installer Rewrite
 - 🔧 **Fixed:** Critical Copy-Item destination directory issues
 - 🔧 **Fixed:** Missing pre-flight validation (no error checking before install)
