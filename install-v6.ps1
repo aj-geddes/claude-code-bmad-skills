@@ -6,7 +6,12 @@
 #
 # Supports: PowerShell 5.1+ (Windows default) and PowerShell 6+ (Core)
 #
-# Usage: .\install-v6.ps1
+# Usage:
+#   .\install-v6.ps1              # Standard installation
+#   .\install-v6.ps1 -Verbose     # Detailed diagnostic output
+#   .\install-v6.ps1 -WhatIf      # Dry-run (show what would be installed)
+#   .\install-v6.ps1 -Force       # Force reinstall over existing
+#   .\install-v6.ps1 -Uninstall   # Remove BMAD Method v6
 ###############################################################################
 
 <#
@@ -32,6 +37,15 @@
 .PARAMETER Verbose
     Display detailed diagnostic information during installation.
 
+.PARAMETER WhatIf
+    Show what would be installed without actually installing (dry-run).
+
+.PARAMETER Force
+    Force reinstallation even if BMAD v6 is already installed.
+
+.PARAMETER Uninstall
+    Remove BMAD Method v6 from the system.
+
 .EXAMPLE
     .\install-v6.ps1
 
@@ -42,43 +56,70 @@
 
     Installs BMAD Method v6 with detailed diagnostic output.
 
+.EXAMPLE
+    .\install-v6.ps1 -WhatIf
+
+    Shows what would be installed without actually installing.
+
+.EXAMPLE
+    .\install-v6.ps1 -Uninstall
+
+    Removes BMAD Method v6 from the system.
+
 .NOTES
-    Version: 6.0.0
+    Version: 6.0.1
     Requires: PowerShell 5.1+
+    Updated: 2025-11-12
+    Changes: Fixed Copy-Item issues, added pre-flight validation, improved error handling
 #>
 
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess=$true)]
 param(
-    [switch]$Help = $false
+    [switch]$Help = $false,
+    [switch]$Force = $false,
+    [switch]$Uninstall = $false
 )
 
-if ($Help) {
-    Write-Host "BMAD Method v6 for Claude Code - Installer"
-    Write-Host ""
-    Write-Host "Usage: .\install-v6.ps1"
-    Write-Host ""
-    Write-Host "Installs BMAD Method v6 to ~/.claude/ directory"
-    exit 0
-}
-
+# Exit on any error
 $ErrorActionPreference = "Stop"
 
+###############################################################################
 # Configuration
-$BmadVersion = "6.0.0"
+###############################################################################
+
+$BmadVersion = "6.0.1"
 
 # PowerShell version detection
 $PSVersion = $PSVersionTable.PSVersion.Major
 $IsPowerShell5 = $PSVersion -lt 6
 
-if ($IsPowerShell5) {
-    Write-Host "Detected: PowerShell $PSVersion (using compatibility mode)" -ForegroundColor Yellow
-} else {
-    Write-Host "Detected: PowerShell $PSVersion" -ForegroundColor Green
+###############################################################################
+# Helper Functions
+###############################################################################
+
+function Write-Info {
+    param([string]$Message)
+    Write-Host "[INFO] $Message" -ForegroundColor Blue
 }
 
-###############################################################################
-# PowerShell 5.1 Compatibility Helper
-###############################################################################
+function Write-Success {
+    param([string]$Message)
+    Write-Host "[OK] $Message" -ForegroundColor Green
+}
+
+function Write-ErrorMsg {
+    param([string]$Message)
+    Write-Host "[ERROR] $Message" -ForegroundColor Red
+}
+
+function Write-Header {
+    param([string]$Message)
+    Write-Host ""
+    Write-Host "===============================================" -ForegroundColor Blue
+    Write-Host "  $Message" -ForegroundColor Blue
+    Write-Host "===============================================" -ForegroundColor Blue
+    Write-Host ""
+}
 
 function Join-PathCompat {
     <#
@@ -98,16 +139,83 @@ function Join-PathCompat {
         [string[]]$ChildPath
     )
 
+    # Validate inputs
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        throw "Path parameter cannot be null or empty"
+    }
+
     if ($IsPowerShell5) {
         # PowerShell 5.1: Chain Join-Path calls
         $result = $Path
         foreach ($segment in $ChildPath) {
-            $result = Join-Path $result $segment
+            if (-not [string]::IsNullOrWhiteSpace($segment)) {
+                $result = Join-Path $result $segment
+            }
         }
         return $result
     } else {
         # PowerShell 6+: Use native multiple-argument support
-        return Join-Path $Path $ChildPath
+        # Filter out null/empty segments
+        $validSegments = $ChildPath | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        return Join-Path $Path $validSegments
+    }
+}
+
+function Copy-ItemSafe {
+    <#
+    .SYNOPSIS
+    Safely copy items ensuring destination directory exists
+
+    .DESCRIPTION
+    Wraps Copy-Item with proper error handling and destination directory creation
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$SourcePath,
+
+        [Parameter(Mandatory=$true)]
+        [string]$DestinationPath,
+
+        [switch]$Recurse,
+        [switch]$Force,
+        [string]$ErrorContext = "file operation"
+    )
+
+    try {
+        # Ensure destination parent directory exists
+        $destParent = Split-Path $DestinationPath -Parent
+        if ($destParent -and -not (Test-Path $destParent)) {
+            Write-Verbose "Creating destination directory: $destParent"
+            New-Item -ItemType Directory -Force -Path $destParent -ErrorAction Stop | Out-Null
+        }
+
+        # Ensure destination directory exists if copying with wildcard
+        if ($SourcePath -match '\*' -and -not (Test-Path $DestinationPath)) {
+            Write-Verbose "Creating destination directory: $DestinationPath"
+            New-Item -ItemType Directory -Force -Path $DestinationPath -ErrorAction Stop | Out-Null
+        }
+
+        # Perform copy
+        $copyParams = @{
+            Path = $SourcePath
+            Destination = $DestinationPath
+            Force = $Force
+            ErrorAction = 'Stop'
+        }
+
+        if ($Recurse) {
+            $copyParams['Recurse'] = $true
+        }
+
+        Copy-Item @copyParams
+        Write-Verbose "Copied: $SourcePath -> $DestinationPath"
+    }
+    catch {
+        Write-ErrorMsg "Failed during $ErrorContext"
+        Write-ErrorMsg "  Source: $SourcePath"
+        Write-ErrorMsg "  Destination: $DestinationPath"
+        Write-ErrorMsg "  Reason: $($_.Exception.Message)"
+        throw
     }
 }
 
@@ -129,27 +237,179 @@ $BmadConfigDir = Join-PathCompat $ClaudeDir "config" "bmad"
 $BmadSkillsDir = Join-PathCompat $ClaudeDir "skills" "bmad"
 $ScriptDir = $PSScriptRoot
 
+# Source directories
+$SourceBmadV6Dir = Join-Path $ScriptDir "bmad-v6"
+$SourceSkillsDir = Join-PathCompat $SourceBmadV6Dir "skills"
+$SourceConfigDir = Join-PathCompat $SourceBmadV6Dir "config"
+$SourceTemplatesDir = Join-PathCompat $SourceBmadV6Dir "templates"
+$SourceUtilsDir = Join-PathCompat $SourceBmadV6Dir "utils"
+
 ###############################################################################
-# Helper Functions
+# Pre-Flight Validation
 ###############################################################################
 
-function Write-Info {
-    param([string]$Message)
-    Write-Host "[INFO] $Message" -ForegroundColor Blue
+function Test-Prerequisites {
+    Write-Info "Running pre-flight checks..."
+    $errors = @()
+
+    # Check PowerShell version
+    if ($PSVersion -eq 5 -and $PSVersionTable.PSVersion.Minor -eq 0) {
+        Write-Warning "PowerShell 5.0 detected. PowerShell 5.1 or newer recommended."
+        Write-Host "  Download: https://aka.ms/wmf5download" -ForegroundColor Yellow
+    }
+
+    Write-Verbose "PowerShell version: $($PSVersionTable.PSVersion)"
+    if ($IsPowerShell5) {
+        Write-Verbose "Running in compatibility mode (PowerShell 5.1)"
+    } else {
+        Write-Verbose "Running in native mode (PowerShell $PSVersion)"
+    }
+
+    # Check if script directory is valid
+    if ([string]::IsNullOrWhiteSpace($ScriptDir)) {
+        $errors += "Cannot determine script directory (PSScriptRoot is empty)"
+    } elseif (-not (Test-Path $ScriptDir)) {
+        $errors += "Script directory not found: $ScriptDir"
+    }
+
+    # Check if bmad-v6 source directory exists
+    if (-not (Test-Path $SourceBmadV6Dir)) {
+        $errors += "Source directory not found: $SourceBmadV6Dir"
+        $errors += "Make sure you're running this script from the repository root"
+    } else {
+        Write-Success "Found source directory: $SourceBmadV6Dir"
+    }
+
+    # Check required source subdirectories
+    $requiredDirs = @{
+        "skills" = $SourceSkillsDir
+        "config" = $SourceConfigDir
+        "templates" = $SourceTemplatesDir
+        "utils" = $SourceUtilsDir
+    }
+
+    foreach ($dirName in $requiredDirs.Keys) {
+        $dirPath = $requiredDirs[$dirName]
+        if (-not (Test-Path $dirPath)) {
+            $errors += "Required source directory not found: $dirPath"
+        } else {
+            Write-Verbose "Found $dirName directory: $dirPath"
+        }
+    }
+
+    # Check write permissions to home directory
+    try {
+        $testFile = Join-Path $HomeDir ".bmad-install-test-$(Get-Date -Format 'yyyyMMddHHmmss')"
+        Set-Content -Path $testFile -Value "test" -ErrorAction Stop
+        Remove-Item $testFile -ErrorAction SilentlyContinue
+        Write-Success "Write permissions verified for: $HomeDir"
+    }
+    catch {
+        $errors += "No write permission to home directory: $HomeDir"
+        $errors += "  Reason: $($_.Exception.Message)"
+    }
+
+    # Check if already installed
+    $bmadMasterPath = Join-PathCompat $BmadSkillsDir "core" "bmad-master" "SKILL.md"
+    if ((Test-Path $bmadMasterPath) -and -not $Force) {
+        Write-Warning "BMAD Method v6 is already installed at: $BmadSkillsDir"
+        Write-Host ""
+        Write-Host "Options:" -ForegroundColor Yellow
+        Write-Host "  1. Run with -Force to reinstall"
+        Write-Host "  2. Run with -Uninstall to remove first"
+        Write-Host "  3. Cancel installation (Ctrl+C)"
+        Write-Host ""
+
+        if (-not $WhatIfPreference) {
+            $response = Read-Host "Reinstall over existing installation? (y/N)"
+            if ($response -ne 'y' -and $response -ne 'Y') {
+                Write-Info "Installation cancelled by user"
+                exit 0
+            }
+        }
+    }
+
+    # Report errors
+    if ($errors.Count -gt 0) {
+        Write-ErrorMsg "Pre-flight checks failed with $($errors.Count) error(s):"
+        foreach ($error in $errors) {
+            Write-Host "  - $error" -ForegroundColor Red
+        }
+        Write-Host ""
+        Write-Host "Installation cannot proceed. Please fix the errors above." -ForegroundColor Yellow
+        return $false
+    }
+
+    Write-Success "All pre-flight checks passed"
+    return $true
 }
 
-function Write-Success {
-    param([string]$Message)
-    Write-Host "[OK] $Message" -ForegroundColor Green
-}
+###############################################################################
+# Uninstall Function
+###############################################################################
 
-function Write-Header {
-    param([string]$Message)
+function Uninstall-BmadV6 {
+    Write-Header "BMAD Method v$BmadVersion Uninstaller"
+
+    Write-Info "Checking for BMAD Method v6 installation..."
+
+    $dirsToRemove = @(
+        $BmadSkillsDir,
+        $BmadConfigDir
+    )
+
+    $found = $false
+    foreach ($dir in $dirsToRemove) {
+        if (Test-Path $dir) {
+            $found = $true
+            Write-Info "Found: $dir"
+        }
+    }
+
+    if (-not $found) {
+        Write-Warning "BMAD Method v6 is not installed"
+        Write-Host "Nothing to uninstall."
+        exit 0
+    }
+
     Write-Host ""
-    Write-Host "===============================================" -ForegroundColor Blue
-    Write-Host "  $Message" -ForegroundColor Blue
-    Write-Host "===============================================" -ForegroundColor Blue
+    Write-Warning "This will remove BMAD Method v6 from your system:"
+    foreach ($dir in $dirsToRemove) {
+        if (Test-Path $dir) {
+            Write-Host "  - $dir" -ForegroundColor Yellow
+        }
+    }
     Write-Host ""
+
+    if (-not $WhatIfPreference) {
+        $response = Read-Host "Continue with uninstall? (y/N)"
+        if ($response -ne 'y' -and $response -ne 'Y') {
+            Write-Info "Uninstall cancelled"
+            exit 0
+        }
+    }
+
+    Write-Info "Uninstalling BMAD Method v6..."
+
+    try {
+        foreach ($dir in $dirsToRemove) {
+            if (Test-Path $dir) {
+                if ($PSCmdlet.ShouldProcess($dir, "Remove directory")) {
+                    Remove-Item -Path $dir -Recurse -Force -ErrorAction Stop
+                    Write-Success "Removed: $dir"
+                }
+            }
+        }
+
+        Write-Host ""
+        Write-Success "BMAD Method v6 has been uninstalled successfully!"
+        Write-Host ""
+        exit 0
+    }
+    catch {
+        Write-ErrorMsg "Uninstall failed: $($_.Exception.Message)"
+        exit 1
+    }
 }
 
 ###############################################################################
@@ -159,28 +419,34 @@ function Write-Header {
 function New-Directories {
     Write-Progress -Activity "Installing BMAD Method v6" -Status "Creating directory structure..." -PercentComplete 0
     Write-Info "Creating directory structure..."
-    Write-Verbose "Skills directory: $BmadSkillsDir"
-    Write-Verbose "Config directory: $BmadConfigDir"
 
     try {
         # Claude Code directories - Skills
         @("core", "bmm", "bmb", "cis") | ForEach-Object {
             $skillDir = Join-Path $BmadSkillsDir $_
-            Write-Verbose "Creating skill directory: $skillDir"
-            New-Item -ItemType Directory -Force -Path $skillDir -ErrorAction Stop | Out-Null
+            if ($PSCmdlet.ShouldProcess($skillDir, "Create directory")) {
+                Write-Verbose "Creating skill directory: $skillDir"
+                New-Item -ItemType Directory -Force -Path $skillDir -ErrorAction Stop | Out-Null
+            }
         }
 
         # Claude Code directories - Config
         @("agents", "templates") | ForEach-Object {
             $configDir = Join-Path $BmadConfigDir $_
-            Write-Verbose "Creating config directory: $configDir"
-            New-Item -ItemType Directory -Force -Path $configDir -ErrorAction Stop | Out-Null
+            if ($PSCmdlet.ShouldProcess($configDir, "Create directory")) {
+                Write-Verbose "Creating config directory: $configDir"
+                New-Item -ItemType Directory -Force -Path $configDir -ErrorAction Stop | Out-Null
+            }
         }
 
-        Write-Success "Directories created"
+        Write-Success "Directory structure created"
+        Write-Verbose "  Skills: $BmadSkillsDir"
+        Write-Verbose "  Config: $BmadConfigDir"
     }
     catch {
-        Write-Error "Failed to create directories: $_" -ErrorAction Stop
+        Write-ErrorMsg "Failed to create directory structure"
+        Write-ErrorMsg "  Reason: $($_.Exception.Message)"
+        throw
     }
 }
 
@@ -188,51 +454,67 @@ function Install-Skills {
     Write-Progress -Activity "Installing BMAD Method v6" -Status "Installing BMAD skills..." -PercentComplete 20
     Write-Info "Installing BMAD skills..."
 
-    try {
-        # Install core skills
-        $CoreSkillsPath = Join-PathCompat $ScriptDir "bmad-v6" "skills" "core"
-        $CoreDestPath = Join-Path $BmadSkillsDir "core"
-        Write-Verbose "Installing core skills from: $CoreSkillsPath"
-        if (Test-Path $CoreSkillsPath) {
-            Copy-Item -Path (Join-Path $CoreSkillsPath "*") -Destination $CoreDestPath -Recurse -Force -ErrorAction Stop
-            Write-Success "Core skills installed"
-            Write-Verbose "Core skills copied to: $CoreDestPath"
+    $skillComponents = @(
+        @{
+            Name = "Core Skills"
+            SourcePath = Join-PathCompat $SourceSkillsDir "core"
+            DestPath = Join-Path $BmadSkillsDir "core"
+            Required = $true
+        },
+        @{
+            Name = "BMM Skills"
+            SourcePath = Join-PathCompat $SourceSkillsDir "bmm"
+            DestPath = Join-Path $BmadSkillsDir "bmm"
+            Required = $true
+        },
+        @{
+            Name = "BMB Skills"
+            SourcePath = Join-PathCompat $SourceSkillsDir "bmb"
+            DestPath = Join-Path $BmadSkillsDir "bmb"
+            Required = $false
+        },
+        @{
+            Name = "CIS Skills"
+            SourcePath = Join-PathCompat $SourceSkillsDir "cis"
+            DestPath = Join-Path $BmadSkillsDir "cis"
+            Required = $false
+        }
+    )
+
+    foreach ($component in $skillComponents) {
+        $sourcePath = $component.SourcePath
+        $destPath = $component.DestPath
+        $componentName = $component.Name
+        $required = $component.Required
+
+        Write-Verbose "Installing $componentName from: $sourcePath"
+
+        if (Test-Path $sourcePath) {
+            try {
+                $sourcePattern = Join-Path $sourcePath "*"
+                if ($PSCmdlet.ShouldProcess($destPath, "Copy $componentName")) {
+                    Copy-ItemSafe -SourcePath $sourcePattern -DestinationPath $destPath -Recurse -Force -ErrorContext "$componentName installation"
+                    Write-Success "$componentName installed"
+                    Write-Verbose "  Copied to: $destPath"
+                }
+            }
+            catch {
+                if ($required) {
+                    throw
+                } else {
+                    Write-Warning "Optional $componentName could not be installed"
+                    Write-Verbose "  Error: $($_.Exception.Message)"
+                }
+            }
         } else {
-            Write-Warning "Core skills not found at $CoreSkillsPath"
+            if ($required) {
+                Write-ErrorMsg "$componentName not found at: $sourcePath"
+                Write-ErrorMsg "Installation cannot continue"
+                throw "Required component missing: $componentName"
+            } else {
+                Write-Verbose "$componentName not found (optional): $sourcePath"
+            }
         }
-
-        # Install BMM skills
-        $BmmSkillsPath = Join-PathCompat $ScriptDir "bmad-v6" "skills" "bmm"
-        $BmmDestPath = Join-Path $BmadSkillsDir "bmm"
-        Write-Verbose "Installing BMM skills from: $BmmSkillsPath"
-        if (Test-Path $BmmSkillsPath) {
-            Copy-Item -Path (Join-Path $BmmSkillsPath "*") -Destination $BmmDestPath -Recurse -Force -ErrorAction Stop
-            Write-Success "BMM skills installed"
-            Write-Verbose "BMM skills copied to: $BmmDestPath"
-        } else {
-            Write-Warning "BMM skills not found at $BmmSkillsPath"
-        }
-
-        # Install BMB skills (optional)
-        $BmbSkillsPath = Join-PathCompat $ScriptDir "bmad-v6" "skills" "bmb"
-        $BmbDestPath = Join-Path $BmadSkillsDir "bmb"
-        Write-Verbose "Installing BMB skills from: $BmbSkillsPath (optional)"
-        if (Test-Path $BmbSkillsPath) {
-            Copy-Item -Path (Join-Path $BmbSkillsPath "*") -Destination $BmbDestPath -Recurse -Force -ErrorAction SilentlyContinue
-            Write-Verbose "BMB skills copied to: $BmbDestPath"
-        }
-
-        # Install CIS skills (optional)
-        $CisSkillsPath = Join-PathCompat $ScriptDir "bmad-v6" "skills" "cis"
-        $CisDestPath = Join-Path $BmadSkillsDir "cis"
-        Write-Verbose "Installing CIS skills from: $CisSkillsPath (optional)"
-        if (Test-Path $CisSkillsPath) {
-            Copy-Item -Path (Join-Path $CisSkillsPath "*") -Destination $CisDestPath -Recurse -Force -ErrorAction SilentlyContinue
-            Write-Verbose "CIS skills copied to: $CisDestPath"
-        }
-    }
-    catch {
-        Write-Error "Failed to install skills: $_" -ErrorAction Stop
     }
 }
 
@@ -242,39 +524,53 @@ function Install-Config {
 
     try {
         # Install config template
-        $ConfigTemplatePath = Join-PathCompat $ScriptDir "bmad-v6" "config" "config.template.yaml"
+        $ConfigTemplatePath = Join-PathCompat $SourceConfigDir "config.template.yaml"
         $ConfigPath = Join-Path $BmadConfigDir "config.yaml"
-        Write-Verbose "Config template path: $ConfigTemplatePath"
+
+        Write-Verbose "Config template: $ConfigTemplatePath"
         Write-Verbose "Config destination: $ConfigPath"
 
         if (Test-Path $ConfigTemplatePath) {
-            if (-not (Test-Path $ConfigPath)) {
-                # Create config from template, substituting variables
-                Write-Verbose "Creating config from template"
-                $configContent = Get-Content $ConfigTemplatePath -Raw -ErrorAction Stop
-                $configContent = $configContent -replace '{{USER_NAME}}', $env:USERNAME
-                Set-Content -Path $ConfigPath -Value $configContent -Encoding UTF8 -ErrorAction Stop
-                Write-Success "Configuration created"
-                Write-Verbose "Config file created with user: $env:USERNAME"
+            if (-not (Test-Path $ConfigPath) -or $Force) {
+                if ($PSCmdlet.ShouldProcess($ConfigPath, "Create configuration")) {
+                    # Create config from template, substituting variables
+                    Write-Verbose "Creating config from template"
+                    $configContent = Get-Content $ConfigTemplatePath -Raw -ErrorAction Stop
+
+                    # Get username (cross-platform)
+                    $userName = if ($env:USERNAME) { $env:USERNAME } else { $env:USER }
+                    $configContent = $configContent -replace '{{USER_NAME}}', $userName
+
+                    Set-Content -Path $ConfigPath -Value $configContent -Encoding UTF8 -ErrorAction Stop
+                    Write-Success "Configuration created"
+                    Write-Verbose "  User: $userName"
+                }
             } else {
-                Write-Info "Configuration already exists, skipping"
-                Write-Verbose "Existing config preserved at: $ConfigPath"
+                Write-Info "Configuration already exists, preserving"
+                Write-Verbose "  Existing config: $ConfigPath"
             }
         } else {
-            Write-Warning "Config template not found at $ConfigTemplatePath"
+            Write-Warning "Config template not found at: $ConfigTemplatePath"
         }
 
         # Copy project config template
-        $ProjectConfigTemplatePath = Join-PathCompat $ScriptDir "bmad-v6" "config" "project-config.template.yaml"
+        $ProjectConfigTemplatePath = Join-PathCompat $SourceConfigDir "project-config.template.yaml"
         $ProjectConfigDestPath = Join-Path $BmadConfigDir "project-config.template.yaml"
-        Write-Verbose "Installing project config template from: $ProjectConfigTemplatePath"
+
+        Write-Verbose "Project config template: $ProjectConfigTemplatePath"
+
         if (Test-Path $ProjectConfigTemplatePath) {
-            Copy-Item -Path $ProjectConfigTemplatePath -Destination $ProjectConfigDestPath -Force -ErrorAction Stop
-            Write-Verbose "Project config template copied to: $ProjectConfigDestPath"
+            if ($PSCmdlet.ShouldProcess($ProjectConfigDestPath, "Copy project config template")) {
+                Copy-ItemSafe -SourcePath $ProjectConfigTemplatePath -DestinationPath $ProjectConfigDestPath -Force -ErrorContext "project config template"
+                Write-Verbose "  Project config template installed"
+            }
+        } else {
+            Write-Verbose "Project config template not found (skipping)"
         }
     }
     catch {
-        Write-Error "Failed to install configuration: $_" -ErrorAction Stop
+        Write-ErrorMsg "Failed to install configuration"
+        throw
     }
 }
 
@@ -283,22 +579,25 @@ function Install-Templates {
     Write-Info "Installing templates..."
 
     try {
-        # Install all template files
-        $TemplatesPath = Join-PathCompat $ScriptDir "bmad-v6" "templates"
         $TemplatesDestPath = Join-Path $BmadConfigDir "templates"
-        Write-Verbose "Templates source: $TemplatesPath"
+
+        Write-Verbose "Templates source: $SourceTemplatesDir"
         Write-Verbose "Templates destination: $TemplatesDestPath"
 
-        if (Test-Path $TemplatesPath) {
-            Copy-Item -Path (Join-Path $TemplatesPath "*") -Destination $TemplatesDestPath -Force -ErrorAction Stop
-            Write-Success "Templates installed"
-            Write-Verbose "Templates copied to: $TemplatesDestPath"
+        if (Test-Path $SourceTemplatesDir) {
+            $templatePattern = Join-Path $SourceTemplatesDir "*"
+            if ($PSCmdlet.ShouldProcess($TemplatesDestPath, "Copy templates")) {
+                Copy-ItemSafe -SourcePath $templatePattern -DestinationPath $TemplatesDestPath -Force -ErrorContext "templates"
+                Write-Success "Templates installed"
+                Write-Verbose "  Copied to: $TemplatesDestPath"
+            }
         } else {
-            Write-Warning "Templates not found at $TemplatesPath"
+            Write-Warning "Templates not found at: $SourceTemplatesDir"
         }
     }
     catch {
-        Write-Error "Failed to install templates: $_" -ErrorAction Stop
+        Write-ErrorMsg "Failed to install templates"
+        throw
     }
 }
 
@@ -307,22 +606,25 @@ function Install-Utils {
     Write-Info "Installing utility helpers..."
 
     try {
-        # Copy helpers.md to config directory for reference
-        $HelpersPath = Join-PathCompat $ScriptDir "bmad-v6" "utils" "helpers.md"
+        $HelpersPath = Join-PathCompat $SourceUtilsDir "helpers.md"
         $HelpersDestPath = Join-Path $BmadConfigDir "helpers.md"
+
         Write-Verbose "Helpers source: $HelpersPath"
         Write-Verbose "Helpers destination: $HelpersDestPath"
 
         if (Test-Path $HelpersPath) {
-            Copy-Item -Path $HelpersPath -Destination $HelpersDestPath -Force -ErrorAction Stop
-            Write-Success "Utility helpers installed"
-            Write-Verbose "Helpers copied to: $HelpersDestPath"
+            if ($PSCmdlet.ShouldProcess($HelpersDestPath, "Copy helpers")) {
+                Copy-ItemSafe -SourcePath $HelpersPath -DestinationPath $HelpersDestPath -Force -ErrorContext "utility helpers"
+                Write-Success "Utility helpers installed"
+                Write-Verbose "  Copied to: $HelpersDestPath"
+            }
         } else {
-            Write-Warning "Helpers not found at $HelpersPath"
+            Write-Warning "Helpers not found at: $HelpersPath"
         }
     }
     catch {
-        Write-Error "Failed to install utility helpers: $_" -ErrorAction Stop
+        Write-ErrorMsg "Failed to install utility helpers"
+        throw
     }
 }
 
@@ -331,43 +633,47 @@ function Test-Installation {
     Write-Info "Verifying installation..."
 
     $errors = 0
+    $checks = @(
+        @{
+            Name = "BMad Master skill"
+            Path = Join-PathCompat $BmadSkillsDir "core" "bmad-master" "SKILL.md"
+        },
+        @{
+            Name = "Configuration"
+            Path = Join-Path $BmadConfigDir "config.yaml"
+        },
+        @{
+            Name = "Helpers"
+            Path = Join-Path $BmadConfigDir "helpers.md"
+        }
+    )
 
-    # Check for BMad Master skill
-    $BmadMasterPath = Join-PathCompat $BmadSkillsDir "core" "bmad-master" "SKILL.md"
-    Write-Verbose "Checking for BMad Master at: $BmadMasterPath"
-    if (Test-Path $BmadMasterPath) {
-        Write-Success "BMad Master skill verified"
-    } else {
-        Write-Host "  [X] BMad Master skill missing at: $BmadMasterPath" -ForegroundColor Red
-        $errors++
-    }
+    foreach ($check in $checks) {
+        $path = $check.Path
+        $name = $check.Name
 
-    # Check for config
-    $ConfigPath = Join-Path $BmadConfigDir "config.yaml"
-    Write-Verbose "Checking for config at: $ConfigPath"
-    if (Test-Path $ConfigPath) {
-        Write-Success "Configuration verified"
-    } else {
-        Write-Host "  [X] Configuration missing at: $ConfigPath" -ForegroundColor Red
-        $errors++
-    }
+        Write-Verbose "Checking: $name at $path"
 
-    # Check for helpers
-    $HelpersPath = Join-Path $BmadConfigDir "helpers.md"
-    Write-Verbose "Checking for helpers at: $HelpersPath"
-    if (Test-Path $HelpersPath) {
-        Write-Success "Helpers verified"
-    } else {
-        Write-Host "  [X] Helpers missing at: $HelpersPath" -ForegroundColor Red
-        $errors++
+        if (Test-Path $path) {
+            # Verify file is not empty
+            $fileInfo = Get-Item $path
+            if ($fileInfo.Length -gt 0) {
+                Write-Success "$name verified"
+            } else {
+                Write-ErrorMsg "$name exists but is empty: $path"
+                $errors++
+            }
+        } else {
+            Write-ErrorMsg "$name missing: $path"
+            $errors++
+        }
     }
 
     if ($errors -eq 0) {
         Write-Success "Installation verified successfully"
-        Write-Verbose "All components verified: $($errors) errors"
         return $true
     } else {
-        Write-Host "[X] Installation verification failed: $errors error(s)" -ForegroundColor Red
+        Write-ErrorMsg "Installation verification failed: $errors error(s)"
         return $false
     }
 }
@@ -380,9 +686,11 @@ function Show-NextSteps {
     Write-Host "Installation location:"
     Write-Host "  Skills: $BmadSkillsDir"
     Write-Host "  Config: $BmadConfigDir"
-    Write-Host "  Utils:  $BmadConfigDir\helpers.md"
     Write-Host ""
-    Write-Host "[OK] BMad Master skill (core orchestrator)"
+    Write-Host "[OK] Core orchestration skills"
+    Write-Host "[OK] Agile workflow skills (Analyst, PM, Architect, SM, Developer, UX)"
+    Write-Host "[OK] Builder module (custom agents and workflows)"
+    Write-Host "[OK] Creative Intelligence (brainstorming and research)"
     Write-Host "[OK] Configuration system"
     Write-Host "[OK] Template engine"
     Write-Host "[OK] Status tracking utilities"
@@ -407,13 +715,39 @@ function Show-NextSteps {
     Write-Host "   Run: /workflow-status"
     Write-Host "   See your project status and get recommendations"
     Write-Host ""
+    Write-Host "Verification Commands:"
+
+    if ($IsWindows -or $env:OS -match "Windows" -or (-not (Test-Path variable:IsWindows))) {
+        Write-Host "  dir `"$BmadSkillsDir\core\bmad-master\SKILL.md`""
+    } else {
+        Write-Host "  ls -la ~/.claude/skills/bmad/core/bmad-master/SKILL.md"
+    }
+
+    Write-Host ""
     Write-Host "Documentation:"
-    Write-Host "   README: $ScriptDir\README.md"
-    Write-Host "   Plan:   $ScriptDir\BMAD-V6-CLAUDE-CODE-TRANSITION-PLAN.md"
+    Write-Host "  README: $ScriptDir\README.md"
     Write-Host ""
     Write-Host "[OK] BMAD Method v6 is ready!" -ForegroundColor Green
     Write-Host ""
-    Write-Host "Need help? Run /workflow-status in Claude Code after initializing your project."
+    Write-Host "Need help? Visit: https://github.com/aj-geddes/claude-code-bmad-skills/issues"
+}
+
+function Show-WhatIfSummary {
+    Write-Header "Installation Summary (Dry-Run)"
+
+    Write-Host "Would install BMAD Method v$BmadVersion to:"
+    Write-Host "  Skills: $BmadSkillsDir"
+    Write-Host "  Config: $BmadConfigDir"
+    Write-Host ""
+    Write-Host "Components:"
+    Write-Host "  [*] Core orchestration skills"
+    Write-Host "  [*] BMM skills (6 agile agents)"
+    Write-Host "  [*] BMB skills (builder module)"
+    Write-Host "  [*] CIS skills (creative intelligence)"
+    Write-Host "  [*] Configuration templates"
+    Write-Host "  [*] Utility helpers"
+    Write-Host ""
+    Write-Host "To perform actual installation, run without -WhatIf"
 }
 
 ###############################################################################
@@ -421,22 +755,49 @@ function Show-NextSteps {
 ###############################################################################
 
 function Main {
+    # Show help
+    if ($Help) {
+        Get-Help $PSCommandPath -Detailed
+        exit 0
+    }
+
+    # Handle uninstall
+    if ($Uninstall) {
+        Uninstall-BmadV6
+        return
+    }
+
     Write-Header "BMAD Method v$BmadVersion Installer"
+
+    # Show version info
+    if ($IsPowerShell5) {
+        Write-Host "Detected: PowerShell $PSVersion (compatibility mode)" -ForegroundColor Yellow
+    } else {
+        Write-Host "Detected: PowerShell $PSVersion" -ForegroundColor Green
+    }
+    Write-Host ""
+
+    # Pre-flight checks
+    if (-not (Test-Prerequisites)) {
+        exit 1
+    }
+
+    # WhatIf summary
+    if ($WhatIfPreference) {
+        Write-Host ""
+        Show-WhatIfSummary
+        exit 0
+    }
+
     Write-Verbose "Installation started at: $(Get-Date)"
-    Write-Verbose "PowerShell version: $PSVersion"
     Write-Verbose "Script directory: $ScriptDir"
-    Write-Verbose "Claude directory: $ClaudeDir"
+    Write-Verbose "Target directory: $ClaudeDir"
 
     try {
-        # Check if Claude directory exists
-        if (-not (Test-Path $ClaudeDir)) {
-            Write-Info "Creating Claude Code directory: $ClaudeDir"
-            Write-Verbose "Creating root Claude directory"
-            New-Item -ItemType Directory -Force -Path $ClaudeDir -ErrorAction Stop | Out-Null
-        }
-
         # Perform installation
-        Write-Verbose "Starting installation sequence"
+        Write-Host ""
+        Write-Info "Starting installation..."
+
         New-Directories
         Install-Skills
         Install-Config
@@ -444,31 +805,49 @@ function Main {
         Install-Utils
 
         # Verify
+        Write-Host ""
         if (Test-Installation) {
             Write-Progress -Activity "Installing BMAD Method v6" -Status "Complete!" -PercentComplete 100
-            Write-Verbose "Installation completed successfully at: $(Get-Date)"
+            Write-Host ""
             Show-NextSteps
             Write-Progress -Activity "Installing BMAD Method v6" -Completed
+            Write-Verbose "Installation completed successfully at: $(Get-Date)"
             exit 0
         } else {
-            Write-Host "Installation verification failed" -ForegroundColor Red
-            Write-Verbose "Installation failed at: $(Get-Date)"
+            Write-ErrorMsg "Installation verification failed"
+            Write-Host ""
+            Write-Host "Troubleshooting:" -ForegroundColor Yellow
+            Write-Host "  1. Run with -Verbose flag for detailed diagnostics"
+            Write-Host "  2. Check file permissions on: $ClaudeDir"
+            Write-Host "  3. Verify source files exist in: $SourceBmadV6Dir"
+            Write-Host "  4. Try running with -Force to reinstall"
+            Write-Host ""
             exit 1
         }
     }
     catch {
         Write-Progress -Activity "Installing BMAD Method v6" -Completed
-        Write-Host "" -ForegroundColor Red
+        Write-Host ""
         Write-Host "===============================================" -ForegroundColor Red
         Write-Host "  Installation Failed" -ForegroundColor Red
         Write-Host "===============================================" -ForegroundColor Red
         Write-Host ""
-        Write-Host "Error: $_" -ForegroundColor Red
+        Write-ErrorMsg $_.Exception.Message
         Write-Host ""
-        Write-Host "For detailed diagnostics, run:" -ForegroundColor Yellow
-        Write-Host "  .\install-v6.ps1 -Verbose" -ForegroundColor Cyan
+        Write-Host "Troubleshooting:" -ForegroundColor Yellow
+        Write-Host "  1. Run with -Verbose flag for detailed diagnostics:"
+        Write-Host "     .\install-v6.ps1 -Verbose"
         Write-Host ""
-        Write-Verbose "Exception details: $($_.Exception.Message)"
+        Write-Host "  2. Check if bmad-v6/ directory exists:"
+        Write-Host "     dir bmad-v6\"
+        Write-Host ""
+        Write-Host "  3. Verify write permissions:"
+        Write-Host "     Test writing to $ClaudeDir"
+        Write-Host ""
+        Write-Host "  4. Report issues:"
+        Write-Host "     https://github.com/aj-geddes/claude-code-bmad-skills/issues"
+        Write-Host ""
+        Write-Verbose "Exception: $($_.Exception.Message)"
         Write-Verbose "Stack trace: $($_.ScriptStackTrace)"
         exit 1
     }
