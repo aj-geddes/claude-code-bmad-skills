@@ -11,10 +11,11 @@
 set -euo pipefail
 
 # Configuration
-BMAD_VERSION="6.0.0"
+BMAD_VERSION="6.0.2"
 CLAUDE_DIR="${HOME}/.claude"
 BMAD_CONFIG_DIR="${CLAUDE_DIR}/config/bmad"
 BMAD_SKILLS_DIR="${CLAUDE_DIR}/skills/bmad"
+BMAD_COMMANDS_DIR="${CLAUDE_DIR}/commands/bmad"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Colors
@@ -48,6 +49,7 @@ create_directories() {
 
     # Claude Code directories
     mkdir -p "${BMAD_SKILLS_DIR}"/{core,bmm,bmb,cis}
+    mkdir -p "${BMAD_COMMANDS_DIR}"
     mkdir -p "${BMAD_CONFIG_DIR}"/{agents,templates}
 
     log_success "Directories created"
@@ -124,6 +126,25 @@ install_utils() {
     fi
 }
 
+install_commands() {
+    log_info "Installing slash commands..."
+
+    # Install all command files
+    if [ -d "${SCRIPT_DIR}/bmad-v6/commands" ]; then
+        local command_count=$(find "${SCRIPT_DIR}/bmad-v6/commands" -name "*.md" 2>/dev/null | wc -l)
+
+        if [ "$command_count" -gt 0 ]; then
+            cp "${SCRIPT_DIR}/bmad-v6/commands"/*.md \
+               "${BMAD_COMMANDS_DIR}/" 2>/dev/null || true
+            log_success "Slash commands installed ($command_count commands)"
+        else
+            echo "⚠ No command files found"
+        fi
+    else
+        echo "⚠ Commands directory not found"
+    fi
+}
+
 verify_installation() {
     log_info "Verifying installation..."
 
@@ -153,6 +174,14 @@ verify_installation() {
         errors=$((errors + 1))
     fi
 
+    # Check for commands
+    if [ -f "${BMAD_COMMANDS_DIR}/workflow-init.md" ]; then
+        log_success "Slash commands verified"
+    else
+        echo "✗ Slash commands missing"
+        errors=$((errors + 1))
+    fi
+
     if [ $errors -eq 0 ]; then
         log_success "Installation verified successfully"
         return 0
@@ -169,11 +198,24 @@ print_next_steps() {
 📦 BMAD Method v${BMAD_VERSION} installed successfully!
 
 Installation location:
-  Skills: ${BMAD_SKILLS_DIR}
-  Config: ${BMAD_CONFIG_DIR}
-  Utils:  ${BMAD_CONFIG_DIR}/helpers.md
+  Skills:   ${BMAD_SKILLS_DIR}
+  Commands: ${BMAD_COMMANDS_DIR}
+  Config:   ${BMAD_CONFIG_DIR}
 
-✓ BMad Master skill (core orchestrator)
+✓ 9 Specialized Skills
+  - Core orchestrator (BMad Master)
+  - Agile agents (Analyst, PM, Architect, SM, Developer, UX)
+  - Builder module (custom agents and workflows)
+  - Creative Intelligence (brainstorming and research)
+
+✓ 15 Workflow Commands
+  - /workflow-init, /workflow-status
+  - /product-brief, /prd, /tech-spec
+  - /architecture, /solutioning-gate-check
+  - /sprint-planning, /create-story, /dev-story
+  - /brainstorm, /research
+  - /create-agent, /create-workflow, /create-ux-design
+
 ✓ Configuration system
 ✓ Template engine
 ✓ Status tracking utilities
@@ -194,13 +236,16 @@ Installation location:
    Run: /workflow-status
    See your project status and get recommendations
 
+📚 Verification:
+   ls -la ~/.claude/skills/bmad/core/bmad-master/SKILL.md
+   ls -la ~/.claude/commands/bmad/workflow-init.md
+
 📚 Documentation:
    README: ${SCRIPT_DIR}/README.md
-   Plan:   ${SCRIPT_DIR}/BMAD-V6-CLAUDE-CODE-TRANSITION-PLAN.md
 
 ${GREEN}✓ BMAD Method v6 is ready!${NC}
 
-Need help? Run /workflow-status in Claude Code after initializing your project.
+Need help? Visit: https://github.com/aj-geddes/claude-code-bmad-skills/issues
 EOF
 }
 
@@ -223,6 +268,7 @@ main() {
     install_config
     install_templates
     install_utils
+    install_commands
 
     # Verify
     if verify_installation; then
