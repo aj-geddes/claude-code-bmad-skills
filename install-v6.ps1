@@ -67,11 +67,12 @@
     Removes BMAD Method v6 from the system.
 
 .NOTES
-    Version: 6.0.2
+    Version: 6.0.3
     Requires: PowerShell 5.1+
-    Updated: 2025-11-12
-    Changes: Fixed Copy-Item issues, added pre-flight validation, improved error handling,
-             added slash commands installation to ~/.claude/commands/bmad/
+    Updated: 2025-11-14
+    Changes: Fixed PowerShell function scoping issues for WSL compatibility by making all
+             functions globally scoped. This resolves "Write-Success is not recognized" errors
+             when running in WSL PowerShell environments.
 #>
 
 [CmdletBinding(SupportsShouldProcess=$true)]
@@ -88,7 +89,7 @@ $ErrorActionPreference = "Stop"
 # Configuration
 ###############################################################################
 
-$BmadVersion = "6.0.2"
+$BmadVersion = "6.0.3"
 
 # PowerShell version detection
 $PSVersion = $PSVersionTable.PSVersion.Major
@@ -98,22 +99,22 @@ $IsPowerShell5 = $PSVersion -lt 6
 # Helper Functions
 ###############################################################################
 
-function Write-Info {
+function global:Write-Info {
     param([string]$Message)
     Write-Host "[INFO] $Message" -ForegroundColor Blue
 }
 
-function Write-Success {
+function global:Write-Success {
     param([string]$Message)
     Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
-function Write-ErrorMsg {
+function global:Write-ErrorMsg {
     param([string]$Message)
     Write-Host "[ERROR] $Message" -ForegroundColor Red
 }
 
-function Write-Header {
+function global:Write-Header {
     param([string]$Message)
     Write-Host ""
     Write-Host "===============================================" -ForegroundColor Blue
@@ -122,7 +123,7 @@ function Write-Header {
     Write-Host ""
 }
 
-function Join-PathCompat {
+function global:Join-PathCompat {
     <#
     .SYNOPSIS
     Join-Path that works in both PowerShell 5.1 and PowerShell 6+
@@ -162,7 +163,7 @@ function Join-PathCompat {
     }
 }
 
-function Copy-ItemSafe {
+function global:Copy-ItemSafe {
     <#
     .SYNOPSIS
     Safely copy items ensuring destination directory exists
@@ -251,7 +252,7 @@ $SourceCommandsDir = Join-PathCompat $SourceBmadV6Dir "commands"
 # Pre-Flight Validation
 ###############################################################################
 
-function Test-Prerequisites {
+function global:Test-Prerequisites {
     Write-Info "Running pre-flight checks..."
     $errors = @()
 
@@ -352,7 +353,7 @@ function Test-Prerequisites {
 # Uninstall Function
 ###############################################################################
 
-function Uninstall-BmadV6 {
+function global:Uninstall-BmadV6 {
     Write-Header "BMAD Method v$BmadVersion Uninstaller"
 
     Write-Info "Checking for BMAD Method v6 installation..."
@@ -421,7 +422,7 @@ function Uninstall-BmadV6 {
 # Installation Functions
 ###############################################################################
 
-function New-Directories {
+function global:New-Directories {
     Write-Progress -Activity "Installing BMAD Method v6" -Status "Creating directory structure..." -PercentComplete 0
     Write-Info "Creating directory structure..."
 
@@ -455,7 +456,7 @@ function New-Directories {
     }
 }
 
-function Install-Skills {
+function global:Install-Skills {
     Write-Progress -Activity "Installing BMAD Method v6" -Status "Installing BMAD skills..." -PercentComplete 20
     Write-Info "Installing BMAD skills..."
 
@@ -523,7 +524,7 @@ function Install-Skills {
     }
 }
 
-function Install-Config {
+function global:Install-Config {
     Write-Progress -Activity "Installing BMAD Method v6" -Status "Installing configuration..." -PercentComplete 40
     Write-Info "Installing configuration..."
 
@@ -579,7 +580,7 @@ function Install-Config {
     }
 }
 
-function Install-Templates {
+function global:Install-Templates {
     Write-Progress -Activity "Installing BMAD Method v6" -Status "Installing templates..." -PercentComplete 60
     Write-Info "Installing templates..."
 
@@ -606,7 +607,7 @@ function Install-Templates {
     }
 }
 
-function Install-Utils {
+function global:Install-Utils {
     Write-Progress -Activity "Installing BMAD Method v6" -Status "Installing utility helpers..." -PercentComplete 70
     Write-Info "Installing utility helpers..."
 
@@ -633,7 +634,7 @@ function Install-Utils {
     }
 }
 
-function Install-Commands {
+function global:Install-Commands {
     Write-Progress -Activity "Installing BMAD Method v6" -Status "Installing slash commands..." -PercentComplete 80
     Write-Info "Installing slash commands..."
 
@@ -670,7 +671,7 @@ function Install-Commands {
     }
 }
 
-function Test-Installation {
+function global:Test-Installation {
     Write-Progress -Activity "Installing BMAD Method v6" -Status "Verifying installation..." -PercentComplete 90
     Write-Info "Verifying installation..."
 
@@ -724,7 +725,7 @@ function Test-Installation {
     }
 }
 
-function Show-NextSteps {
+function global:Show-NextSteps {
     Write-Header "Installation Complete!"
 
     Write-Host "[SUCCESS] BMAD Method v$BmadVersion installed successfully!" -ForegroundColor Green
@@ -789,7 +790,7 @@ function Show-NextSteps {
     Write-Host "Need help? Visit: https://github.com/aj-geddes/claude-code-bmad-skills/issues"
 }
 
-function Show-WhatIfSummary {
+function global:Show-WhatIfSummary {
     Write-Header "Installation Summary (Dry-Run)"
 
     Write-Host "Would install BMAD Method v$BmadVersion to:"
@@ -811,7 +812,7 @@ function Show-WhatIfSummary {
 # Main Installation
 ###############################################################################
 
-function Main {
+function global:Main {
     # Show help
     if ($Help) {
         Get-Help $PSCommandPath -Detailed
