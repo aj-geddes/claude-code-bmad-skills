@@ -25,7 +25,6 @@
     "context-engineering",
     "agile"
   ],
-  "hooks": "./hooks/hooks.json",
   "userConfig": {
     "outputFolder": {
       "type": "string",
